@@ -1,44 +1,51 @@
 #!/bin/bash
 
-# set -e
+set -e
 
-# echo "Running tests..."
-# npm test
-# if [ $? -ne 0 ]; then
-#   echo "Tests failed. Exiting deployment."
-#   exit 1
-# fi
-
-# echo "Tests passed, proceeding with deployment."
-
-# Configuration
+# Config
 DOCKER_USERNAME="sid0014"
-DOCKER_IMAGE_NAME="climate-event-aggregator"
+REPO_NAME="climate-event-aggregator"
 TAG=$(date +'%Y%m%d%H%M%S')
-DOCKER_COMPOSE_FILE="docker-compose.yml"
 
-echo "Cleaning up previous containers..."
-docker compose -f $DOCKER_COMPOSE_FILE down --remove-orphans
+# Step 1: Cleanup
+echo "Stopping containers..."
+docker compose down --remove-orphans || true
 
-echo "Removing old local images (if any)..."
-docker rmi ${DOCKER_USERNAME}/${DOCKER_IMAGE_NAME}:latest || true
-docker rmi ${DOCKER_USERNAME}/${DOCKER_IMAGE_NAME}:${TAG} || true
+# Step 2: Remove old images
+docker rmi ${DOCKER_USERNAME}/${REPO_NAME}:backend-latest || true
+docker rmi ${DOCKER_USERNAME}/${REPO_NAME}:frontend-latest || true
+docker rmi ${DOCKER_USERNAME}/${REPO_NAME}:simulator-latest || true
 
-echo "Building Docker image..."
-docker build -t ${DOCKER_USERNAME}/${DOCKER_IMAGE_NAME}:latest .
+# Step 3: Build images with appropriate tags
+echo "Building images..."
+docker build -t ${DOCKER_USERNAME}/${REPO_NAME}:backend-latest ./backend
+docker tag ${DOCKER_USERNAME}/${REPO_NAME}:backend-latest ${DOCKER_USERNAME}/${REPO_NAME}:backend-${TAG}
 
-echo "Tagging image as ${TAG}..."
-docker tag ${DOCKER_USERNAME}/${DOCKER_IMAGE_NAME}:latest ${DOCKER_USERNAME}/${DOCKER_IMAGE_NAME}:${TAG}
+docker build -t ${DOCKER_USERNAME}/${REPO_NAME}:frontend-latest ./frontend
+docker tag ${DOCKER_USERNAME}/${REPO_NAME}:frontend-latest ${DOCKER_USERNAME}/${REPO_NAME}:frontend-${TAG}
 
-echo "Pushing images to Docker Hub..."
-docker push ${DOCKER_USERNAME}/${DOCKER_IMAGE_NAME}:latest
-docker push ${DOCKER_USERNAME}/${DOCKER_IMAGE_NAME}:${TAG}
+docker build -t ${DOCKER_USERNAME}/${REPO_NAME}:simulator-latest -f ./backend/Dockerfile.simulator ./backend
+docker tag ${DOCKER_USERNAME}/${REPO_NAME}:simulator-latest ${DOCKER_USERNAME}/${REPO_NAME}:simulator-${TAG}
 
-echo "Deploying application with Docker Compose..."
-docker compose -f $DOCKER_COMPOSE_FILE up -d --build
+# Step 4: Push images to Docker Hub
+echo "Pushing to Docker Hub..."
+docker push ${DOCKER_USERNAME}/${REPO_NAME}:backend-latest
+docker push ${DOCKER_USERNAME}/${REPO_NAME}:backend-${TAG}
+docker push ${DOCKER_USERNAME}/${REPO_NAME}:frontend-latest
+docker push ${DOCKER_USERNAME}/${REPO_NAME}:frontend-${TAG}
+docker push ${DOCKER_USERNAME}/${REPO_NAME}:simulator-latest
+docker push ${DOCKER_USERNAME}/${REPO_NAME}:simulator-${TAG}
 
+# Step 5: Deploy using local images
+echo "Deploying locally using Docker Compose..."
+docker compose up -d --build
+
+echo ""
 echo "Deployment complete. Service status:"
-docker compose -f $DOCKER_COMPOSE_FILE ps
-
-echo "🌐 Frontend: http://localhost:5173"
-echo "🛠️ Backend (GraphQL): http://localhost:4000"
+docker compose ps
+echo ""
+echo "Frontend: http://localhost:5173"
+echo "Backend: http://localhost:4000"
+echo "Simulator WS: ws://localhost:8765"
+echo "Redis: http://localhost:6379"
+echo "To stop the application, run: docker compose -f $DOCKER_COMPOSE_FILE down"
