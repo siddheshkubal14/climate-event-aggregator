@@ -1,0 +1,69 @@
+version: "3.8"
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    env_file:
+      - ./backend/.env
+    ports:
+      - "4000:4000"
+    depends_on:
+      simulator:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - WEBSOCKET_URL=ws://simulator:8765
+      - NODE_ENV=local
+      - REDIS_URL=redis://redis:6379
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    networks:
+      - climate-net
+
+  redis:
+    image: redis:6
+    ports:
+      - "6379:6379"
+    networks:
+      - climate-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  simulator:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.simulator
+    env_file:
+      - ./backend/.env
+    ports:
+      - "8765:8765"
+    networks:
+      - climate-net
+    healthcheck:
+      test: ["CMD", "bash", "-c", "</dev/tcp/localhost/8765"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    env_file:
+      - ./frontend/.env
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    networks:
+      - climate-net
+
+networks:
+  climate-net:
