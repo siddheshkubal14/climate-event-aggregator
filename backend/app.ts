@@ -42,6 +42,10 @@ export default async (): Promise<Application> => {
     });
 
     // Middleware chain
+
+    // Authentication middleware
+    // Note: This should be applied to all routes that require authentication
+    // To allow unauthenticated access to some routes, we can apply authMiddleware selectively
     router.use(authMiddleware);
     router.use("/graphql", graphqlHTTP({
         schema,
