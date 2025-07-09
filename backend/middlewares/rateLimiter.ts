@@ -8,14 +8,14 @@ import { ERROR_MESSAGES } from "../constants.js";
  * 
  * Configuration:
  * - windowMs: 15 minutes
- * - max: 100 requests per window
+ * - max: 500 requests per window
  * - standardHeaders: true (includes rate limit info in response headers)
  * - legacyHeaders: false (disables the X-RateLimit-* headers)
  * - message: Custom error message for too many requests
  */
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 100,
+    max: 500,
     standardHeaders: true,
     legacyHeaders: false,
     message: ERROR_MESSAGES.TOO_MANY_REQUESTS,
